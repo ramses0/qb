@@ -1,0 +1,11 @@
+if [ "--usage" == "$1" ] ; then
+    echo "update current branch w/o merge commits"
+    exit 2
+fi
+if [ "--help" == "$1" ] ; then
+    echo "--lots of complicated"
+    echo "--help goes here of more complicated"
+    exit 2
+fi
+
+echo "Wheee1 fancy git commands"

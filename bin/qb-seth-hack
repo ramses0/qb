@@ -1,0 +1,15 @@
+if [ "--usage" == "$1" ] ; then
+    echo "use this to make seth hack!"
+    exit 2
+fi
+if [ "--help" == "$1" ] ; then
+    echo "--lots of complicated"
+    echo "--help goes here of more complicated"
+    exit 2
+fi
+
+
+COUNT=$1
+seq 1 $COUNT | while read s ; do
+	echo hack ... $s of $COUNT
+done
