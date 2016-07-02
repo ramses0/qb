@@ -9,122 +9,155 @@ if [ "--usage" == "$1" ] ; then
     exit 2
 fi
 if [ "--help" == "$1" ] ; then
-    echo "make a file qb-foo, which must respond to --usage and probably --help"
-    echo "qb will use 'compgen -c' (bash tab completion) to pull out '--usage' statements"
-    echo "symlink 'qb-bar' back to 'qb' itself to allow a new tree of commands: 'qb-bar-*'"
+    echo Usage: $PREFIX [sub-commands]
+    echo
+    echo QuarterBack: passes off work to other commands and encourages a
+    echo self-documenting command structure.
+    echo
+    echo Any command of the form in you path of the form ${PREFIX}-foo
+    echo will be considered a sub-command of ${PREFIX} and executed as
+    echo "'${PREFIX}-foo --usage' which must print one line only and"
+    echo "exit with a non-zero exit code."
+    echo
+    echo "${PREFIX} will use 'compgen -c' (bash tab completion) to discover"
+    echo "new commands and allow users to discover and execute them.  It is"
+    echo "especially useful for helping to slightly organize every messy"
+    echo "internal operational infrastructure."
+    echo
+    echo "Executing '${PREFIX} foo bar' will execute '${PREFIX}-foo-bar' assuming"
+    echo "it exists and is in the path.  If 'qb-foo' exists, it will be"
+    echo "executed first, and in the case of a non-zero exit code, will"
+    echo "prevent '${PREFIX}-foo-bar' from executing (like ${PREFIX}-foo && ${PREFIX}-foo-bar)"
+    echo ""
+    echo "Future extensions could allow '${PREFIX}-foo' to set variables for"
+    echo "use in '${PREFIX}-foo-bar'"
+    echo ""
+    echo "A starting example script is as follows:"
+    echo '  #!/bin/sh'
+    echo '  if [ "--usage" == "$1" ] ; then'
+    echo '    echo "one line description here"'
+    echo '    exit 2'
+    echo '  fi'
+    echo '  if [ "--help" == "$1" ] ; then'
+    echo '    echo "more complicated help"'
+    echo '    echo "should be documented here"'
+    echo '    exit 2'
+    echo '  fi'
+    echo '  echo "the actual command should go here"'
     exit 2
 fi
+
 if [ "--all" == "$1" ] ; then
     echo "$EXPANSIONS"
     exit 2
 fi
 
 function next_prefixes() {
-	PREFIX="$1"
-	EXPANSIONS="$2"
-	NXT=` echo "$EXPANSIONS"           \
-			| sed "s/${PREFIX}-//g"    \
-			| sed 's/-.*//g'           \
-			| sort | uniq `
-	echo "$NXT"
+    PREFIX="$1"
+    EXPANSIONS="$2"
+    NXT=` echo "$EXPANSIONS"           \
+            | sed "s/${PREFIX}-//g"    \
+            | sed 's/-.*//g'           \
+            | sort | uniq `
+    echo "$NXT"
 }
 
 # note, uses $EXPANSIONS instead of compgen
 function command_exists() {
-	COMMAND="$1"
-	echo "$EXPANSIONS" | grep ^$COMMAND$ > /dev/null
-	if [ "$?" == "0" ] ; then
-		echo 0
-	else
-		echo 1
-	fi
+    COMMAND="$1"
+    echo "$EXPANSIONS" | grep ^$COMMAND$ > /dev/null
+    if [ "$?" == "0" ] ; then
+        echo 0
+    else
+        echo 1
+    fi
 }
 
 function this_node() {
-	PREFIX="$1"
-	EXPANSIONS=` compgen -c "${PREFIX}-" `
-	NP=` next_prefixes "$PREFIX" "$EXPANSIONS" `;
-	echo "$NP"
+    PREFIX="$1"
+    EXPANSIONS=` compgen -c "${PREFIX}-" `
+    NP=` next_prefixes "$PREFIX" "$EXPANSIONS" `;
+    echo "$NP"
 }
 if [ "$1" == "" ] ; then
-	# this is a "branch node", spit out usages
-	echo "Commands for qb"
-	THIS_NODE=` this_node qb `
-	echo "$THIS_NODE" | while read CMD ; do
-		FULL_CMD=$PREFIX-$CMD
-		CE=` command_exists $FULL_CMD `
-		if [ "$CE" == "0" ] ; then
-			WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
-			USAGE="` $FULL_CMD --usage `"
-		else
-			WHEN="????-??-??"
-			USAGE=" ... more commands "
-		fi
-		echo " ($WHEN) $CMD - $USAGE"
-	done
-	exit 2
+    # this is a "branch node", spit out usages
+    echo "Commands for qb"
+    THIS_NODE=` this_node qb `
+    echo "$THIS_NODE" | while read CMD ; do
+        FULL_CMD=$PREFIX-$CMD
+        CE=` command_exists $FULL_CMD `
+        if [ "$CE" == "0" ] ; then
+            WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+            USAGE="` $FULL_CMD --usage `"
+        else
+            WHEN="????-??-??"
+            USAGE=" ... more commands "
+        fi
+        echo " ($WHEN) $CMD - $USAGE"
+    done
+    exit 2
 fi
 
 function non_terms() {
-	NON_TERMINII=$1
-	echo $NON_TERMINII
-	echo $NON_TERMINII | while read non_term ; do
-		$non_term
-	done
+    NON_TERMINII=$1
+    echo $NON_TERMINII
+    echo $NON_TERMINII | while read non_term ; do
+        $non_term
+    done
 }
 
 NON_TERMINII=""
 while [ "$1" != "" ] ; do
-	SUFFIX=$1
-	shift
-	PREFIX="${PREFIX}-${SUFFIX}"
-	THIS_NODE=` this_node "$PREFIX" "$EXPANSIONS" `
-	WC_THIS_NODE=` echo "$THIS_NODE" | wc -l | awk -- '{print $1}' `
-	TCE=` command_exists $PREFIX `
-	if [[ 1 == $WC_THIS_NODE && 0 == $TCE ]] ; then
-		# this is a "terminus node", execute / delegate to this command! (finally!)
-		echo $NON_TERMINII | while read ntcmd ; do
-			TCENT=` command_exists $ntcmd `
-			if [ 0 == $TCENT ] ; then
-				$ntcmd
-				if [ "0" != "$?" ] ; then
-					echo Error!
-					exit 2
-				fi
-			fi
-		done
-		if [ "$?" != "0" ] ; then
-			 exit 2
-		fi
-		#echo "ALL_CAPT"
-		#echo "$ALL_CAPT"
+    SUFFIX=$1
+    shift
+    PREFIX="${PREFIX}-${SUFFIX}"
+    THIS_NODE=` this_node "$PREFIX" "$EXPANSIONS" `
+    WC_THIS_NODE=` echo "$THIS_NODE" | wc -l | awk -- '{print $1}' `
+    TCE=` command_exists $PREFIX `
+    if [[ 1 == $WC_THIS_NODE && 0 == $TCE ]] ; then
+        # this is a "terminus node", execute / delegate to this command! (finally!)
+        echo $NON_TERMINII | while read ntcmd ; do
+            TCENT=` command_exists $ntcmd `
+            if [ 0 == $TCENT ] ; then
+                $ntcmd
+                if [ "0" != "$?" ] ; then
+                    echo Error!
+                    exit 2
+                fi
+            fi
+        done
+        if [ "$?" != "0" ] ; then
+             exit 2
+        fi
+        #echo "ALL_CAPT"
+        #echo "$ALL_CAPT"
 
-		#echo source $PREFIX "$@"
-		#FOO=888 $PREFIX "$@"
-		eval $PREFIX "$@"
-		exit $?
-	else
-		NON_TERMINII="$NON_TERMINII $PREFIX"
-	fi
+        #echo source $PREFIX "$@"
+        #FOO=888 $PREFIX "$@"
+        eval $PREFIX "$@"
+        exit $?
+    else
+        NON_TERMINII="$NON_TERMINII $PREFIX"
+    fi
 done
 
 if [ "0" != "$?" ] ; then
-	exit 2;
+    exit 2;
 fi
 
 
 # this is a "branch node" (b/c not a terminus), spit out usages
 echo "Commands for $PREFIX"
 echo "$THIS_NODE" | while read CMD ; do
-	FULL_CMD=$PREFIX-$CMD
-	CE=` command_exists $FULL_CMD `
-	if [ "$CE" == "0" ] ; then
-		WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
-		USAGE="` $FULL_CMD --usage `"
-	else
-		WHEN="????-??-??"
-		USAGE=" ... more commands "
-	fi
-	echo " ($WHEN) $CMD - $USAGE"
+    FULL_CMD=$PREFIX-$CMD
+    CE=` command_exists $FULL_CMD `
+    if [ "$CE" == "0" ] ; then
+        WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+        USAGE="` $FULL_CMD --usage `"
+    else
+        WHEN="????-??-??"
+        USAGE=" ... more commands "
+    fi
+    echo " ($WHEN) $CMD - $USAGE"
 done
 exit 2
