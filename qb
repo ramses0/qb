@@ -2,7 +2,7 @@
 
 SELF=$0
 PREFIX=` echo $0 | sed 's/^.*\///g' `
-EXPANSIONS=` compgen -c $PREFIX | sed 's/^.*\///g' | sort | sed '1d' `
+EXPANSIONS=` compgen -c $PREFIX | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$ `
 
 if [ "--usage" == "$1" ] ; then
     echo "delegates to qb-sub-commands, similar to git"
@@ -29,12 +29,15 @@ function next_prefixes() {
 	echo "$NXT"
 }
 
+# note, uses $EXPANSIONS instead of compgen
 function command_exists() {
 	COMMAND="$1"
-	hash $COMMAND 2> /dev/null
-	echo $?
-	#compgen -c $COMMAND 1> /dev/null
-	#echo $?
+	echo "$EXPANSIONS" | grep ^$COMMAND$ > /dev/null
+	if [ "$?" == "0" ] ; then
+		echo 0
+	else
+		echo 1
+	fi
 }
 
 function this_node() {
@@ -51,11 +54,13 @@ if [ "$1" == "" ] ; then
 		FULL_CMD=$PREFIX-$CMD
 		CE=` command_exists $FULL_CMD `
 		if [ "$CE" == "0" ] ; then
-			USAGE=` $FULL_CMD --usage `
+			WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+			USAGE="` $FULL_CMD --usage `"
 		else
+			WHEN="????-??-??"
 			USAGE=" ... more commands "
 		fi
-		echo " $CMD - $USAGE"
+		echo " ($WHEN) $CMD - $USAGE"
 	done
 	exit 2
 fi
@@ -74,14 +79,18 @@ while [ "$1" != "" ] ; do
 	shift
 	PREFIX="${PREFIX}-${SUFFIX}"
 	THIS_NODE=` this_node "$PREFIX" "$EXPANSIONS" `
-	WC_THIS_NODE=` echo "$THIS_NODE" | wc -l `
-	if [ 1 == $WC_THIS_NODE ] ; then
+	WC_THIS_NODE=` echo "$THIS_NODE" | wc -l | awk -- '{print $1}' `
+	TCE=` command_exists $PREFIX `
+	if [[ 1 == $WC_THIS_NODE && 0 == $TCE ]] ; then
 		# this is a "terminus node", execute / delegate to this command! (finally!)
 		echo $NON_TERMINII | while read ntcmd ; do
-			$ntcmd
-			if [ "0" != "$?" ] ; then
-				echo Error!
-				exit 2
+			TCENT=` command_exists $ntcmd `
+			if [ 0 == $TCENT ] ; then
+				$ntcmd
+				if [ "0" != "$?" ] ; then
+					echo Error!
+					exit 2
+				fi
 			fi
 		done
 		if [ "$?" != "0" ] ; then
@@ -110,10 +119,12 @@ echo "$THIS_NODE" | while read CMD ; do
 	FULL_CMD=$PREFIX-$CMD
 	CE=` command_exists $FULL_CMD `
 	if [ "$CE" == "0" ] ; then
-		USAGE=` $FULL_CMD --usage `
+		WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+		USAGE="` $FULL_CMD --usage `"
 	else
+		WHEN="????-??-??"
 		USAGE=" ... more commands "
 	fi
-	echo " $CMD - $USAGE"
+	echo " ($WHEN) $CMD - $USAGE"
 done
 exit 2
