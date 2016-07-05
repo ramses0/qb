@@ -73,6 +73,17 @@ function command_exists() {
     fi
 }
 
+# if we're in a chain of commands which cannot ever reach a compgen ($EXPANSIONS)
+function lost() {
+    COMMAND="$1"
+    echo "$EXPANSIONS" | grep ^$COMMAND > /dev/null
+    if [ "$?" == "0" ] ; then
+        echo 0
+    else
+        echo 1
+    fi
+}
+
 function this_node() {
     PREFIX="$1"
     EXPANSIONS=` compgen -c "${PREFIX}-" `
@@ -148,16 +159,21 @@ fi
 
 # this is a "branch node" (b/c not a terminus), spit out usages
 echo "Commands for $PREFIX"
-echo "$THIS_NODE" | while read CMD ; do
-    FULL_CMD=$PREFIX-$CMD
-    CE=` command_exists $FULL_CMD `
-    if [ "$CE" == "0" ] ; then
-        WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
-        USAGE="` $FULL_CMD --usage `"
-    else
-        WHEN="????-??-??"
-        USAGE=" ... more commands "
-    fi
-    echo " ($WHEN) $CMD - $USAGE"
-done
-exit 2
+LOST=` lost $PREFIX `
+if [ "0" == "$LOST" ] ; then
+    echo "$THIS_NODE" | while read CMD ; do
+        FULL_CMD=$PREFIX-$CMD
+        CE=` command_exists $FULL_CMD `
+        if [ "$CE" == "0" ] ; then
+            WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+            USAGE="` $FULL_CMD --usage `"
+        else
+            WHEN="????-??-??"
+            USAGE=" ... more commands "
+        fi
+        echo " ($WHEN) $CMD - $USAGE"
+    done
+    exit 2
+else
+    echo "$PREFIX not found"
+fi
