@@ -98,13 +98,13 @@ if [ "$1" == "" ] ; then
         FULL_CMD=$PREFIX-$CMD
         CE=` command_exists $FULL_CMD `
         if [ "$CE" == "0" ] ; then
-            WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+            #WHEN="($( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d ))"
             USAGE="` $FULL_CMD --usage `"
         else
-            WHEN="????-??-??"
+            #WHEN="(????-??-??)"
             USAGE=" ... more commands "
         fi
-        echo " ($WHEN) $CMD - $USAGE"
+        echo " $WHEN $CMD - $USAGE"
     done
     exit 2
 fi
@@ -165,13 +165,13 @@ if [ "0" == "$LOST" ] ; then
         FULL_CMD=$PREFIX-$CMD
         CE=` command_exists $FULL_CMD `
         if [ "$CE" == "0" ] ; then
-            WHEN=$( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d )
+            #WHEN="($( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d ))"
             USAGE="` $FULL_CMD --usage `"
         else
-            WHEN="????-??-??"
+            #WHEN="(????-??-??)"
             USAGE=" ... more commands "
         fi
-        echo " ($WHEN) $CMD - $USAGE"
+        echo " $WHEN $CMD - $USAGE"
     done
     exit 2
 else
