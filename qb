@@ -2,7 +2,7 @@
 
 SELF=$0
 PREFIX=` echo $0 | sed 's/^.*\///g' `
-EXPANSIONS=` compgen -c $PREFIX | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$ `
+EXPANSIONS=` compgen -c ${PREFIX}- | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$ `
 
 if [ "--usage" == "$1" ] ; then
     echo "delegates to qb-sub-commands, similar to git"
