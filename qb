@@ -74,8 +74,9 @@ function next_prefixes() {
     PREFIX="$1"
     EXPANSIONS="$2"
     NXT=$( echo "$EXPANSIONS"           \
+            | grep ^${PREFIX}-          \
             | sed "s/^${PREFIX}-//g"    \
-            | sed 's/-.*//g'           \
+            | sed 's/-.*//g'            \
             | sort | uniq )
     echo "$NXT"
 }
