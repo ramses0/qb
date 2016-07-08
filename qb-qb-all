@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "--usage" == "$1" ] ; then
+    echo "lines printed here will be grafted into the command hierarchy"
+    exit 2
+fi
+
+PREFIX=qb
+compgen -c ${PREFIX}- | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$
