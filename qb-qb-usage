@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ "--usage" == "$1" ] ; then
+    echo "show oneline descriptions of given executable command from 'all' command"
+    exit 2
+fi
+
+CMD=$1
+if [ "$CMD" == "" ] ; then
+	echo "error: no command given to describe"
+	exit 1
+fi
+$CMD --usage | head -1

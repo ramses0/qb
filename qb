@@ -56,6 +56,15 @@ if [ "1" == "$ALL_CMD_EXISTS" ] ; then
 fi
 EXPANSIONS=$( $ALL_CMD )
 
+# try to delegate for --usage
+USAGE_CMD=${PREFIX}-${PREFIX}-usage
+hash $USAGE_CMD 2> /dev/null
+USAGE_CMD_EXISTS=$?
+if [ "1" == "$USAGE_CMD_EXISTS" ] ; then
+	echo "error: command $USAGE_CMD not found, cannot show command descriptions"
+	exit 1;
+fi
+
 if [ "--all" == "$1" ] ; then
     echo "$EXPANSIONS"
     exit 2
@@ -120,7 +129,7 @@ if [ "$1" == "" ] ; then
         CE=$( command_exists $FULL_CMD )
         if [ "$CE" == "0" ] ; then
             #WHEN="($( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d ))"
-            USAGE="$( $FULL_CMD --usage )"
+            USAGE="$( $USAGE_CMD $FULL_CMD )"
         else
             #WHEN="(????-??-??)"
             USAGE=" ... more commands "
@@ -187,7 +196,7 @@ if [ "0" == "$LOST" ] ; then
         CE=$( command_exists $FULL_CMD )
         if [ "$CE" == "0" ] ; then
             #WHEN="($( date -r $(stat -f "%m" $(which $FULL_CMD)) +%Y-%m-%d ))"
-            USAGE="$( $FULL_CMD --usage )"
+            USAGE="$( $USAGE_CMD $FULL_CMD )"
         else
             #WHEN="(????-??-??)"
             USAGE=" ... more commands "
