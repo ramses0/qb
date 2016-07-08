@@ -132,7 +132,7 @@ if [ "$1" == "" ] ; then
             USAGE="$( $USAGE_CMD $FULL_CMD )"
         else
             #WHEN="(????-??-??)"
-            USAGE=" ... more commands "
+            USAGE=" ... "
         fi
         echo " $WHEN $CMD - $USAGE"
     done
@@ -199,7 +199,7 @@ if [ "0" == "$LOST" ] ; then
             USAGE="$( $USAGE_CMD $FULL_CMD )"
         else
             #WHEN="(????-??-??)"
-            USAGE=" ... more commands "
+            USAGE=" ... "
         fi
         echo " $WHEN $CMD - $USAGE"
     done
