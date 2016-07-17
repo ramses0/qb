@@ -12,28 +12,28 @@ out sub-commands and their location on disk.
 	~/bin/qq-foo
 
 	$ ~/bin/qq-foo
-	These commands are related to "foo" operationts
+	These commands are related to "foo" operations
 	bar ~/bin/bar
 	baz ~/bin/baz
 
 	$ qq
-	Commands available
-	  foo - These commands are related to "foo" operationts
+	Global commands
+	  foo - These commands are related to "foo" operations
 	  qq - commands related to qq itself
 
 	$ qq foo
-	Commands available
+	Global commands
 	  bar - This is the bar command
-	  baz - These commands are related to "foo" operationts
+	  baz - These commands are related to "foo" operations
 
 	$ ~/bin/baz --help
 	This is the baz command
-	  --help        print this text
-	  --make-money  literally prints money
+	  --help         print this text
+	  --print-money  literally prints money
 
-	$ qq foo bar
-	Error: need to pass --make-money option to make money
-	$ qq foo bar --make-money
+	$ qq foo baz
+	Error: need to pass --print-money option to print money
+	$ qq foo bar --print-money
 	money money money!
 ```
 
@@ -52,11 +52,12 @@ the first line of the `README` file will be printed as the header.
 	My Project Ad-Hoc Scripts
 
 	$ ls -1 ~/Git/my-project/bin/
+	README.txt
 	do_something
 	another_thing
 
 	$ qq
-	Commands available
+	Global commands
 	  qq - commands related to qq itself
 	My Project Ad-Hoc Scripts
 	  do_something - The do_something command, this most definitely does something
@@ -72,8 +73,12 @@ the first line of the `README` file will be printed as the header.
 	Done!
 
 	$ cd ~ && qq
-	Commands available
+	Global commands
 	  qq - commands related to qq itself
+
+#	$ cd - && qq --all
+#	qq-qq ~/bin/qq-qq
+#	qq-run ~/bin/qq-qq
 ```
 
 Commands that `qq` attempts to execute MUST BE SAFE TO DO SO WITH `--help` AS

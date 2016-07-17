@@ -8,7 +8,9 @@ if [ "--usage" == "$1" ] ; then
     exit 2
 fi
 if [ "--help" == "$1" ] ; then
-    echo "Usage: $PREFIX [sub-commands]"
+    echo "QuarterBack: discover commands and encourage documentation"
+    echo
+    echo "  usage: $PREFIX [sub-commands]"
     echo
     echo "QuarterBack: passes off work to other commands and encourages a"
     echo "self-documenting command structure."
@@ -30,19 +32,6 @@ if [ "--help" == "$1" ] ; then
     echo ""
     echo "Future extensions could allow '${PREFIX}-foo' to set variables for"
     echo "use in '${PREFIX}-foo-bar'"
-    echo ""
-    echo "A starting example script is as follows:"
-    echo '  #!/bin/sh'
-    echo '  if [ "--usage" == "$1" ] ; then'
-    echo '    echo "one line description here"'
-    echo '    exit 2'
-    echo '  fi'
-    echo '  if [ "--help" == "$1" ] ; then'
-    echo '    echo "more complicated help"'
-    echo '    echo "should be documented here"'
-    echo '    exit 2'
-    echo '  fi'
-    echo '  echo "the actual command should go here"'
     exit 2
 fi
 
@@ -54,7 +43,9 @@ if [ "1" == "$ALL_CMD_EXISTS" ] ; then
 	echo "error: command $ALL_CMD not found, cannot generate completions"
 	exit 1;
 fi
-EXPANSIONS=$( $ALL_CMD )
+# expansions are the first column (full path to executable might be in 2nd column)
+FULL_EXPANSIONS=$( $ALL_CMD )
+EXPANSIONS=$( echo "$FULL_EXPANSIONS" | awk -- '{print $1}' )
 
 # try to delegate for --usage
 USAGE_CMD=${PREFIX}-${PREFIX}-usage
@@ -148,6 +139,13 @@ function non_terms() {
     done
 }
 
+function execute() {
+    CMD=$1
+    CMD_LINE=$( echo "$FULL_EXPANSIONS" | grep "^$CMD\( \|\$\)" )
+    CMD_DISK=$( echo $CMD_LINE | awk -- '{ print $2 }' )
+    $CMD_DISK "$@"
+}
+
 NON_TERMINII=""
 while [ "$1" != "" ] ; do
     SUFFIX=$1
@@ -161,7 +159,7 @@ while [ "$1" != "" ] ; do
         echo $NON_TERMINII | while read ntcmd ; do
             TCENT=$( command_exists $ntcmd )
             if [ 0 == $TCENT ] ; then
-                $ntcmd
+                execute $ntcmd
                 if [ "0" != "$?" ] ; then
                     echo Error!
                     exit 2
@@ -176,7 +174,7 @@ while [ "$1" != "" ] ; do
 
         #echo source $PREFIX "$@"
         #FOO=888 $PREFIX "$@"
-        eval $PREFIX "$@"
+        execute $PREFIX "$@"
         exit $?
     else
         NON_TERMINII="$NON_TERMINII $PREFIX"

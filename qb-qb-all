@@ -1,9 +1,116 @@
 #!/bin/bash
 
-if [ "--usage" == "$1" ] ; then
+if [ "--help" == "$1" ] ; then
     echo "lines printed here will be grafted into the command hierarchy"
     exit 2
 fi
 
 PREFIX=qb
-compgen -c ${PREFIX}- | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$
+IN_PATH=$( compgen -c ${PREFIX}- | sed 's/^.*\///g' | sort | grep -v ^${PREFIX}$ )
+
+echo "$IN_PATH" | while read cmd ; do
+	echo $cmd $( which $cmd )
+done
+
+function fake_readlink() {
+	cd -P -- "$(dirname -- "$1")" && printf '%s\n' "$(pwd -P)/$(basename -- "$1")"
+	cd - > /dev/null
+}
+
+
+function descend() {
+	PREFIX=$1
+	DIR=$2
+	#echo DESCEND: $PREFIX - $DIR
+
+	cd $DIR
+
+	# this dir has commands that are valid to run
+	if [ -f ./qb.txt ] ; then
+		#echo -n 'PWD '
+		#pwd
+		#echo -n 'DIR '
+		#echo $DIR
+
+		find $DIR -perm +111 -type f -maxdepth 1 | while read an_executable ; do
+			echo -n "qb-${PREFIX}"
+			echo -n "$( basename $an_executable ) "
+			fake_readlink $an_executable
+		done
+	fi
+
+
+	# see if any subdirs are valid too?
+	#echo PWD2 `pwd`
+	CANDIDATE_SUBDIRS=$( find . -iname qb.txt -type f -mindepth 2 -maxdepth 2 )
+	#echo $CANDIDATE_SUBDIRS
+	#if [ "$DIR" == "/Users/rames/Git/styleguide/bin/abc" ] ; then echo AAAA ; exit 1 ; fi
+
+	if [ "" != "$CANDIDATE_SUBDIRS" ] ; then
+		echo "$CANDIDATE_SUBDIRS" | while read candidate ; do
+			dirname=$( echo $candidate | sed 's/^[^\/]*\///g' | sed 's/\/.*$//g' )
+			#echo "DESCENDING AGAIN: $dirname"
+			#echo descend ${PREFIX}${dirname}- ${DIR}/${dirname}
+
+			descend ${PREFIX}${dirname}- ${DIR}/${dirname}
+		done
+	fi
+}
+
+ALL_PARENT_DIRS="$( pwd ) "
+PWD=$( pwd )
+IX=50
+while [[ "$PWD" != "/" && $IX > 0 ]] ; do
+	cd ..
+	PWD=$( pwd )
+	ALL_PARENT_DIRS=$( printf "$ALL_PARENT_DIRS\n$PWD" )
+	IX=$(( $IX - 1 ))
+done
+
+
+echo "$ALL_PARENT_DIRS" | while read path_item ; do
+	#echo "Looking in: $path_item..."
+	if [ -f $path_item/bin/qb.txt ] ; then
+		#echo "HELLO FOUND @ $path_item"
+		descend run- $path_item/bin
+	fi
+done
+
+exit 0
+echo "-----------------"
+
+
+# as you cd into ~/Git/repo-foo, then commands from repo-foo/bin/*.sh appear in list available (prefer)
+while ... ; do
+	cd ...
+	if [ -x ./bin/.qb ] ...
+		then ...
+			find ./bin/.... -executable=true
+			echo ...
+	fi
+done
+
+
+~/Git/riq/bin/.qb => "yes, i support --usage"
+~/Git/riq/bin/newProj
+~/Git/riq/bin/restartProd
+~/Git/riq/bin/prod:restart
+~/Git/riq/bin/prod/restart
+~/Git/riq/bin/prod/backup
+
+cd ~/Git/riq/bin
+					... find .
+
+	qb
+		riq - ...
+
+	qb-riq:
+		newProj - blah
+		restartProd - blah
+
+qb riq restartProd
+
+
+# mega advanced mode: all commands from all repo's are highlighted (don't do this)
+find ~/Git -type d  -maxdepth 2 -iname bin | xargs -n1 ls -1 | xargs -n1 -I{} echo {} /...//.bin/{}
+

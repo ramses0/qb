@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "--usage" == "$1" ] ; then
+if [ "--help" == "$1" ] ; then
     echo "show oneline descriptions of given executable command from 'all' command"
     exit 2
 fi
@@ -10,4 +10,27 @@ if [ "$CMD" == "" ] ; then
 	echo "error: no command given to describe"
 	exit 1
 fi
-$CMD --usage | head -1
+
+
+# expansions are the first column (full path to executable might be in 2nd column)
+FULL_EXPANSIONS=$( qb-qb-all )
+
+function execute() {
+    CMD=$1
+    shift
+    CMD_LINE=$( echo "$FULL_EXPANSIONS" | grep "^$CMD\( \|\$\)" )
+    CMD_DISK=$( echo $CMD_LINE | awk -- '{ print $2 }' )
+    $CMD_DISK "$@"
+}
+
+function look_for_text_file() {
+    CMD=$1
+    CMD_LINE=$( echo "$FULL_EXPANSIONS" | grep "^$CMD\( \|\$\)" )
+    CMD_DISK=$( echo $CMD_LINE | awk -- '{ print $2 }' )
+    if [ -f ${CMD_DISK}/qb.txt ] ; then
+        cat ${CMD_DISK}/qb.txt
+    fi
+}
+
+look_for_text_file $CMD
+execute $CMD --help | head -1
