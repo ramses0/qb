@@ -88,23 +88,14 @@ function show_all {
 ARGSARR=( "$@" )
 ix=0
 
-while [ $ix -lt ${#ARGSARR[@]} ]; do
-    echo ${ARGSARR[$ix]} | grep -E '^\-\w\w' > /dev/null
-
-    if [ $? -eq 0 ]; then
-        ARGSARR+=($(echo ${ARGSARR[$ix]} | sed 's,-,,g' | sed -E 's,[a-zA-Z],-& ,g'))
-    else
-        case ${ARGSARR[$ix]} in
-            "-f"|"--flag") OPT_FLAG=1 ;;
-            "--all") show_all ; exit ;;
-            "--help") show_help ;;
-            "--usage") show_usage ;;
-        esac
-    fi
-
-    ix=$(($ix + 1))
-done
-
+if [ "--help" == "$1" ] ; then
+	show_help
+	exit
+fi
+if [ "--all" == "$1" ] ; then
+	show_all
+	exit
+fi
 
 
 function descend_one_level {
@@ -140,11 +131,17 @@ function doc_for_point {
 function one_level {
 	COMMANDS=$1
 	PREFIX=$2
-	FILTERED=$( echo "$COMMANDS" | awk -- "/^$PREFIX/ { print \$0 }" )
-	#echo FILTERED
-	#echo "$FILTERED"
+	FILTERED=$( echo "$COMMANDS" | awk -- "/^${PREFIX}-/ { print \$0 }" )
+	#                  remove prefix             # remove suffix     # uniq
+	echo "$FILTERED" | sed "s/${2}-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
+}
+
+function one_level_all_special {
+	ALL=$1
+	PREFIX=$2
+	FILTERED=$( echo "$ALL" | awk -- "/^. ${PREFIX}-/ { print \$2 } /^. qq / { \$1=\"\"; \$2=\"\"; print \"! \" \$0 }" )
     #                  remove prefix             # remove suffix     # uniq
-	echo "$FILTERED" | sed "s/$2-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
+	echo "$FILTERED" | sed "s/^${2}-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
 }
 
 
@@ -224,12 +221,24 @@ function document {
 	ALL="$1"
 	POINT="$2"
 
-	COMMANDS=$( echo "$ALL" | awk -- '{print $2}' )
-	CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
-	printf "Commands for $POINT\n"
+	if [ "qq" == "$POINT" ] ; then
+		# top-level has special rules to intermingle top-level docs w/ command docs
+		CUR_LEVEL=$( one_level_all_special "$ALL" $POINT )
+	else
+		COMMANDS=$( echo "$ALL" | awk -- '{print $2}' )
+		CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
+	fi
+
 	echo "$CUR_LEVEL" | while read sub ; do
-		DOC=$( doc_for_point "$ALL" "$POINT-$sub" )
-		printf "  $sub - $DOC\n"
+		# see if this line is special
+		echo $sub | grep '^!' > /dev/null
+		IS_SPECIAL="$?"
+		if [ "0" == "$IS_SPECIAL" ] ; then
+			echo "$sub" | sed 's/^\!\ *//g'
+		else
+			DOC=$( doc_for_point "$ALL" "$POINT-$sub" )
+			printf "  $sub - $DOC\n"
+		fi
 	done
 }
 
@@ -238,6 +247,7 @@ ALL=$( show_all )
 DC=$( deepest_completion_point "$ALL" "$@" )
 # this will exec and exit otherwise proceed directly to documentation
 delegate_if_exists "$ALL" "$DC" "$@"
+printf "Commands for qq\n"
 document "$ALL" "$DC"
 exit
 
