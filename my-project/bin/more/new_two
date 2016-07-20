@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+function show_help() {
+	echo "This command is the new two command, when you get tired of one"
+	echo "  --help                print this text"
+	echo "  --really              need confirmation before we do something"
+	exit 1;
+}
+
+function really_do_something() {
+	echo "Please wait, really doing something..."
+	sleep 1
+	echo "Done!"
+	exit 0;
+}
+
+ARGSARR=( "$@" )
+ix=0
+
+while [ $ix -lt ${#ARGSARR[@]} ]; do
+    echo ${ARGSARR[$ix]} | grep -E '^\-\w\w' > /dev/null
+
+    if [ $? -eq 0 ]; then
+        ARGSARR+=($(echo ${ARGSARR[$ix]} | sed 's,-,,g' | sed -E 's,[a-zA-Z],-& ,g'))
+    else
+        case ${ARGSARR[$ix]} in
+            "--help") show_help ;;
+            "--really") really_do_something ;;
+        esac
+    fi
+
+    ix=$(($ix + 1))
+done
+

@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+
+function show_help() {
+	echo "Less QQ more Pew-Pew!"
+	echo "  --help                prints this message"
+	exit 1;
+}
+
+function parent_dirs {
+	pushd . > /dev/null
+	ALL_PARENT_DIRS="$( pwd ) "
+	PWD=$( pwd )
+	IX=50
+	while [[ "$PWD" != "/" && $IX > 0 ]] ; do
+		cd ..
+		PWD=$( pwd )
+		ALL_PARENT_DIRS=$( printf "$ALL_PARENT_DIRS\n$PWD" )
+		IX=$(( $IX - 1 ))
+	done
+	echo "$ALL_PARENT_DIRS"
+	popd > /dev/null
+}
+
+# given a list of directories, filter down to only those which contain
+# './bin/README*'s
+function descend_points_bin {
+	CANDIDATE_DIRS=$1
+	echo "$CANDIDATE_DIRS" | while read cur_dir ; do
+		if [ -f $cur_dir/bin/README.txt ] ; then
+			echo $cur_dir/bin
+		fi
+	done
+}
+
+# from within a ./bin/README.txt, any subdirs which also contain README.txt
+# should be considered as sub-descend points based on directory name
+function descend_points_sub {
+	START_DIR=$1
+	SUBDIRS=$( find $START_DIR -name README.txt -maxdepth 5 | sed 's/\/README.*//g' | sort )
+	echo "$SUBDIRS"
+}
+
+
+function show_all_path {
+	COMMANDS=$( compgen -c qq- )
+	echo "$COMMANDS" | while read linker ; do
+		LINKER_OUTPUT=$( $linker )
+		DESC=$( echo "$LINKER_OUTPUT" | head -1 )
+		echo D $linker $DESC
+		echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
+			CMD_ONLY=$( echo $linker_line | awk '{ $1=""; $2=""; print $0 }' )
+			NAME_ONLY=$( echo $linker_line | awk '{ print $2 }' )
+			echo X $linker-$NAME_ONLY $CMD_ONLY
+		done
+	done
+}
+
+function show_all_dir {
+	DIR=$1
+	PREFIX=$2
+	if [ -f $DIR/README.txt ] ; then
+		printf "D qq${PREFIX} "
+		cat $DIR/README.txt | head -1
+		SUBCOMMANDS=$( find $DIR -perm +111 -type f -maxdepth 1 | sed 's/^.*\///g' | sort )
+		echo "$SUBCOMMANDS" | while read subcommand ; do
+			echo X qq${PREFIX}-$subcommand $DIR/$subcommand
+		done
+	fi
+}
+
+
+function show_all {
+	show_all_path
+	PD=$( parent_dirs );
+	DPB=$( descend_points_bin "$PD" );
+	if [ "" != "$DPB" ] ; then
+		echo "$DPB" | while read dir ; do
+			DPS=$( descend_points_sub $dir )
+			MASTER_DIR_LENGTH=$( echo $dir | wc -c )
+			echo "$DPS" | while read subdir ; do
+				PREFIX=$( echo $subdir | cut -c ${MASTER_DIR_LENGTH}- - | sed 's/\//-/g' )
+				show_all_dir $subdir $PREFIX
+			done
+		done
+	fi
+}
+
+ARGSARR=( "$@" )
+ix=0
+
+while [ $ix -lt ${#ARGSARR[@]} ]; do
+    echo ${ARGSARR[$ix]} | grep -E '^\-\w\w' > /dev/null
+
+    if [ $? -eq 0 ]; then
+        ARGSARR+=($(echo ${ARGSARR[$ix]} | sed 's,-,,g' | sed -E 's,[a-zA-Z],-& ,g'))
+    else
+        case ${ARGSARR[$ix]} in
+            "-f"|"--flag") OPT_FLAG=1 ;;
+            "--all") show_all ; exit ;;
+            "--help") show_help ;;
+            "--usage") show_usage ;;
+        esac
+    fi
+
+    ix=$(($ix + 1))
+done
+
+
+
+function descend_one_level {
+	pushd . > /dev/null
+
+	CUR_DIR=$1
+	cd $CUR_DIR
+	DESCRIPTION=$( head -1 ./README.txt )
+
+	SUBCOMMANDS=$( find . -perm +111 -type f -maxdepth 1 | sed 's/^\.\///g' )
+	echo "$DESCRIPTION"
+	echo "$SUBCOMMANDS" | while read an_executable ; do
+		SUB_DESCRIPTION=$( ./$an_executable --help | head -1 )
+		echo "  $an_executable - $SUB_DESCRIPTION"
+	done
+
+	popd > /dev/null
+}
+
+function doc_for_point {
+	ALL="$1"
+	POINT=$2
+	FOUND_LINE=$( echo "$ALL" | grep "^X $POINT " )
+	if [ "$?" == "0" ] ; then
+		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
+		DOC=$( $CMD --help | head -1 )
+	else
+		DOC=$( echo "$ALL" | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"...\" } }" )
+	fi
+	echo $DOC
+}
+
+function one_level {
+	COMMANDS=$1
+	PREFIX=$2
+	FILTERED=$( echo "$COMMANDS" | awk -- "/^$PREFIX/ { print \$0 }" )
+	#echo FILTERED
+	#echo "$FILTERED"
+    #                  remove prefix             # remove suffix     # uniq
+	echo "$FILTERED" | sed "s/$2-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
+}
+
+
+
+function next_prefixes() {
+    EXPANSIONS="$1"
+    PREFIX="$2"
+    NXT=$( echo "$EXPANSIONS"           \
+            | grep ^${PREFIX}-          \
+            | sed "s/^${PREFIX}-//g"    \
+            | sed 's/-.*//g'            \
+            | sort | uniq )
+    echo "$NXT"
+}
+
+function names_only {
+	$ALL="$1"
+	echo "$ALL" | awk -- '{ print $2 }'
+}
+
+
+# while next_level && wc -l != 1 .... shift
+function there_is_next_level {
+	ALL="$1"
+	CUR_LEVEL=$2
+	NEXT_LEVEL=$3
+
+	NAMES_ONLY=$( names_only "$ALL" )
+	echo $NAMES_ONLY;
+exit 1
+
+	PROPOSED="${CUR_LEVEL}-${NEXT_LEVEL}"
+	echo "$ALL" | grep $PROPOSED
+	THE_GREP=$?
+
+	echo $THE_GREP
+}
+
+
+
+function deepest_completion_point {
+	ALL="$1"
+	shift
+	COMMANDS=$( echo "$ALL" | awk -- '{print $2}' )
+	POINT=qq
+	COMMAND_FOUND=0   # reversed to behave like grep
+	while [[ "$1" != "" && $COMMAND_FOUND == "0" ]] ; do
+		CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
+		echo "$ALL" | grep $POINT-$1 > /dev/null
+		COMMAND_FOUND=$?
+		if [ "0" == "$COMMAND_FOUND" ] ; then
+			POINT="$POINT-$1"
+			shift
+		fi
+	done
+
+	echo $POINT
+}
+
+function delegate_if_exists {
+	ALL="$1"
+	CMD="$2"
+	shift
+	shift
+	EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$CMD$/ { print \$3 }" )
+	if [ "" != "$EXISTS" ] ; then
+		# damn!  need to consume a bunch of "$@"'s per each "qq-$CMD-$CMD"
+		DASHES=$( echo $CMD | sed 's/[^-]//g' | wc -c )
+		DASHES=$(( $DASHES - 1 ))  # remove newline character from count
+		shift $DASHES
+		exec $EXISTS "$@"
+	fi
+}
+
+# see how deep we can recognize command nodes / sub-nodes
+ALL=$( show_all )
+DC=$( deepest_completion_point "$ALL" "$@" )
+echo $DC
+delegate_if_exists "$ALL" "$DC" "$@"
+exit
+
+#CMD_SO_FAR=$1
+#TINL=$( there_is_next_level $CMD_SO_FAR )
+#while 
+
+
+
+
+echo "Global commands"
+echo "  qq - commands related to qq itself"
+
+PD=$( parent_dirs );
+DPB=$( descend_points_bin "$PD" );
+
+#echo descend_points
+#echo "$DPB"
+
+if [ "" != "$DPB" ] ; then
+	echo "$DPB" | while read point ; do
+		descend_one_level $point
+	done
+fi
+
