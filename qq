@@ -48,9 +48,10 @@ function show_all_path {
 		DESC=$( echo "$LINKER_OUTPUT" | head -1 )
 		echo D $linker $DESC
 		echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
+			TYPE_ONLY=$( echo $linker_line | awk '{ print $1 }' )
 			CMD_ONLY=$( echo $linker_line | awk '{ $1=""; $2=""; print $0 }' )
 			NAME_ONLY=$( echo $linker_line | awk '{ print $2 }' )
-			echo X $linker-$NAME_ONLY $CMD_ONLY
+			echo $TYPE_ONLY $linker-$NAME_ONLY $CMD_ONLY
 		done
 	done
 }
