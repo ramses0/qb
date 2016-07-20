@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+function show_help() {
+	echo "this is a mid-level command"
+	echo "  --help                prints this message"
+	exit 1;
+}
+
+
+if [ "--help" == "$1" ] ; then
+	show_help
+	exit
+fi
+
+echo "this command has run successfully: $0"

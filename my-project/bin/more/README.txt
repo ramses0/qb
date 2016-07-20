@@ -1,4 +1,4 @@
-My project more scripts
+My project more scripts in a subdirectory of bin with a README.txt
 2
 3 spec
 4 says
