@@ -216,35 +216,28 @@ function delegate_if_exists {
 		DASHES=$(( $DASHES - 1 ))  # remove newline character from count
 		shift $DASHES
 		exec $EXISTS "$@"
+		exit "$?"
 	fi
+}
+
+function document {
+	ALL="$1"
+	POINT="$2"
+
+	COMMANDS=$( echo "$ALL" | awk -- '{print $2}' )
+	CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
+	printf "Commands for $POINT\n"
+	echo "$CUR_LEVEL" | while read sub ; do
+		DOC=$( doc_for_point "$ALL" "$POINT-$sub" )
+		printf "  $sub - $DOC\n"
+	done
 }
 
 # see how deep we can recognize command nodes / sub-nodes
 ALL=$( show_all )
 DC=$( deepest_completion_point "$ALL" "$@" )
-echo $DC
+# this will exec and exit otherwise proceed directly to documentation
 delegate_if_exists "$ALL" "$DC" "$@"
+document "$ALL" "$DC"
 exit
-
-#CMD_SO_FAR=$1
-#TINL=$( there_is_next_level $CMD_SO_FAR )
-#while 
-
-
-
-
-echo "Global commands"
-echo "  qq - commands related to qq itself"
-
-PD=$( parent_dirs );
-DPB=$( descend_points_bin "$PD" );
-
-#echo descend_points
-#echo "$DPB"
-
-if [ "" != "$DPB" ] ; then
-	echo "$DPB" | while read point ; do
-		descend_one_level $point
-	done
-fi
 
