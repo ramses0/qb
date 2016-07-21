@@ -206,12 +206,14 @@ function doc_for_point {
 	POINT=$2
 	FOUND_LINE=$( echo "$ALL" | grep "^X $POINT " )
 	if [ "$?" == "0" ] ; then
+		EXUCUTABLE=""
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
 		DOC=$( $CMD --help | head -1 )
 	else
+		EXUCUTABLE="*"
 		DOC=$( echo "$ALL" | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"...\" } }" )
 	fi
-	echo $DOC
+	echo "$EXUCUTABLE - $DOC"
 }
 
 function one_level {
@@ -328,7 +330,7 @@ function document {
 			echo "$sub" | sed 's/^\!\ *//g'
 		else
 			DOC=$( doc_for_point "$ALL" "$POINT-$sub" )
-			printf "  $sub - $DOC\n"
+			printf "  ${sub}${DOC}\n"
 		fi
 	done
 }
@@ -338,7 +340,12 @@ ALL=$( show_all )
 DC=$( deepest_completion_point "$ALL" "$@" )
 # this will exec and exit otherwise proceed directly to documentation
 delegate_if_exists "$ALL" "$DC" "$@"
-printf "Commands for qq\n"
-document "$ALL" "$DC"
-exit
+if [[ "$DC" == "qq" && "$1" != "" ]] ; then
+	echo "Error: $1 not found!"
+	exit 1
+else
+	printf "Commands for qq\n"
+	document "$ALL" "$DC"
+	exit 0
+fi
 

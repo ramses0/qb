@@ -8,3 +8,4 @@ My Project Ad-Hoc Scripts
 8 ten
 9 lines
 10 it is!
+commands in here must implement --help
