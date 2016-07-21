@@ -2,8 +2,83 @@
 
 function show_help() {
 	echo "Less QQ more Pew-Pew!"
-	echo "  --help                prints this message"
-	exit 1;
+	echo "  --help           prints this message"
+	echo "  --help-path      how to add globally available commands to 'qq'"
+	echo "  --help-bin       how to format a 'bin' directory so it is linked in to 'qq'"
+	echo ""
+	echo "'qq' passes off work to other commands and encourages a self-documenting,"
+	echo "discoverable, ad-hoc command structure. It is especially useful for helping"
+	echo "to slightly organize every messy internal operational infrastructure."
+}
+
+function show_help_path() {
+	echo "Globally Available Path Commands"
+	echo ""
+	echo "Any command in your path named 'qq-*' will be executed on every"
+	echo "invocation of 'qq'."
+	echo ""
+	echo "These commands should print out on the first line a useful description"
+	echo "followed by 'X' for executable lines and 'D' for description lines"
+	echo ""
+	echo "Example:"
+	echo "   [description of all commands]"
+	echo "   X [shortname]      [path_to_exectable]"
+	echo "   X [shortname]      [path_to_exectable]"
+	echo "   D [sub-shortname]  [description of subcommands]"
+	echo "   X [sub-shortname]  [path_to_exectable]"
+	echo ""
+	echo "$ qq-unix"
+	echo "These are standard unix commands"
+	echo "X cp /bin/cp"
+	echo "X ls /bin/ls"
+	echo "D more More commands can be linked here go here"
+	echo "X more-ls /bin/ls"
+	echo "X more-cp /bin/cp"
+	echo ""
+	echo "The above commands can be discovered and called as:"
+	echo "  $ qq                 # lists all first level commands"
+	echo "  $ qq unix            # lists all commands described from qq-unix"
+	echo "  $ qq unix cp         # directly execute qq-unix | grep '^X cp '"
+	echo "  $ qq unix more ls    # traverse deeper into commands returned by qq-unix"
+	exit;
+}
+
+function show_help_bin() {
+	echo "Well-Formed ./bin/ directories in parent path"
+	echo ""
+	echo "When 'qq' is invoked it searches parent directories for a"
+	echo "directory called './bin' that also contains a 'README.txt'"
+	echo "and assumes that the commands in there are sufficiently well-"
+	echo "formed to be callable as 'commmand --help' without side-effects."
+	echo ""
+	echo "...a dangerous assumption, but necessary to aid in discovery of"
+	echo "those commands and increase the quality and documentation of"
+	echo "said commands."
+	echo ""
+	echo "The first line of ./bin/README.txt should contain a useful"
+	echo "description of the commands contained in that directory and"
+	echo "may contain as much documentation as desired."
+	echo ""
+	echo "Subdirectories in the ./bin directory which also contain a"
+	echo "./README.txt in the same format will be added as further"
+	echo "junction points for more commands."
+	echo ""
+	echo "Example:"
+	echo "  $ find ../bin -type f"
+	echo "  ../bin/README.txt"
+	echo "  ../bin/foo"
+	echo "  ../bin/bar"
+	echo "  ../bin/more/README.txt"
+	echo "  ../bin/more/baz"
+	echo "  $ qq"
+	echo "  Commands from a bin dir"
+	echo "    foo - info from ../bin/foo --help | head -1"
+	echo "    bar - info from ../bin/bar --help | head -1"
+	echo "    more - from head -1 ../bin/more/README.txt"
+	echo "  $ qq more"
+	echo "  Commands from ../bin/more/README.txt directory"
+	echo "    baz - info from ../bin/more/baz --help | head -1"
+	exit;
 }
 
 function parent_dirs {
@@ -43,17 +118,19 @@ function descend_points_sub {
 
 function show_all_path {
 	COMMANDS=$( compgen -c qq- )
-	echo "$COMMANDS" | while read linker ; do
-		LINKER_OUTPUT=$( $linker )
-		DESC=$( echo "$LINKER_OUTPUT" | head -1 )
-		echo D $linker $DESC
-		echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
-			TYPE_ONLY=$( echo $linker_line | awk '{ print $1 }' )
-			CMD_ONLY=$( echo $linker_line | awk '{ $1=""; $2=""; print $0 }' )
-			NAME_ONLY=$( echo $linker_line | awk '{ print $2 }' )
-			echo $TYPE_ONLY $linker-$NAME_ONLY $CMD_ONLY
+	if [ "" != "$COMMANDS" ] ; then
+		echo "$COMMANDS" | while read linker ; do
+			LINKER_OUTPUT=$( $linker )
+			DESC=$( echo "$LINKER_OUTPUT" | head -1 )
+			echo D $linker $DESC
+			echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
+				TYPE_ONLY=$( echo $linker_line | awk '{ print $1 }' )
+				CMD_ONLY=$( echo $linker_line | awk '{ $1=""; $2=""; print $0 }' )
+				NAME_ONLY=$( echo $linker_line | awk '{ print $2 }' )
+				echo $TYPE_ONLY $linker-$NAME_ONLY $CMD_ONLY
+			done
 		done
-	done
+	fi
 }
 
 function show_all_dir {
@@ -91,6 +168,14 @@ ix=0
 
 if [ "--help" == "$1" ] ; then
 	show_help
+	exit
+fi
+if [ "--help-path" == "$1" ] ; then
+	show_help_path
+	exit
+fi
+if [ "--help-bin" == "$1" ] ; then
+	show_help_bin
 	exit
 fi
 if [ "--all" == "$1" ] ; then
@@ -221,6 +306,11 @@ function delegate_if_exists {
 function document {
 	ALL="$1"
 	POINT="$2"
+
+	if [ "" == "$ALL" ] ; then
+		show_help
+		exit
+	fi
 
 	if [ "qq" == "$POINT" ] ; then
 		# top-level has special rules to intermingle top-level docs w/ command docs
