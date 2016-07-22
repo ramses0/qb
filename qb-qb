@@ -1,6 +1,0 @@
-#!/bin/bash
-
-if [ "--help" == "$1" ] ; then
-    echo "commands related to qb itself"
-    exit 2
-fi
