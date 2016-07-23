@@ -122,12 +122,13 @@ function show_all_path {
 		echo "$COMMANDS" | while read linker ; do
 			LINKER_OUTPUT=$( $linker )
 			DESC=$( echo "$LINKER_OUTPUT" | head -1 )
-			echo D $linker $DESC
+			LINKER_AS_DIR=$( echo $linker | sed 's/-/\//g' )
+			echo D $LINKER_AS_DIR $DESC
 			echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
 				TYPE_ONLY=$( echo $linker_line | awk '{ print $1 }' )
 				CMD_ONLY=$( echo $linker_line | awk '{ $1=""; $2=""; print $0 }' )
 				NAME_ONLY=$( echo $linker_line | awk '{ print $2 }' )
-				echo $TYPE_ONLY $linker-$NAME_ONLY $CMD_ONLY
+				echo $TYPE_ONLY $LINKER_AS_DIR/$NAME_ONLY $CMD_ONLY
 			done
 		done
 	fi
@@ -141,7 +142,7 @@ function show_all_dir {
 		cat $DIR/README.txt | head -1
 		SUBCOMMANDS=$( find $DIR -perm +111 -type f -maxdepth 1 | sed 's/^.*\///g' | sort )
 		echo "$SUBCOMMANDS" | while read subcommand ; do
-			echo X qq${PREFIX}-$subcommand $DIR/$subcommand
+			echo X qq${PREFIX}/$subcommand $DIR/$subcommand
 		done
 	fi
 }
@@ -156,7 +157,7 @@ function show_all {
 			DPS=$( descend_points_sub $dir )
 			MASTER_DIR_LENGTH=$( echo $dir | wc -c )
 			echo "$DPS" | while read subdir ; do
-				PREFIX=$( echo $subdir | cut -c ${MASTER_DIR_LENGTH}- - | sed 's/\//-/g' )
+				PREFIX=$( echo $subdir | cut -c ${MASTER_DIR_LENGTH}- - )
 				show_all_dir $subdir $PREFIX
 			done
 		done
@@ -204,6 +205,7 @@ function descend_one_level {
 function doc_for_point {
 	ALL="$1"
 	POINT=$2
+	POINT=$( echo $POINT | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
 	FOUND_LINE=$( echo "$ALL" | grep "^X $POINT " )
 	if [ "$?" == "0" ] ; then
 		EXUCUTABLE=""
@@ -219,17 +221,18 @@ function doc_for_point {
 function one_level {
 	COMMANDS=$1
 	PREFIX=$2
-	FILTERED=$( echo "$COMMANDS" | awk -- "/^${PREFIX}-/ { print \$0 }" )
+	PREFIX=$( echo $PREFIX | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+	FILTERED=$( echo "$COMMANDS" | awk -- "/^${PREFIX}\// { print \$0 }" )
 	#                  remove prefix             # remove suffix     # uniq
-	echo "$FILTERED" | sed "s/${2}-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
+	echo "$FILTERED" | sed "s/${PREFIX}\/\(.*\)$/\1/g" | sed "s/\/.*$//g"   |  uniq
 }
 
 function one_level_all_special {
 	ALL=$1
 	PREFIX=$2
-	FILTERED=$( echo "$ALL" | awk -- "/^. ${PREFIX}-/ { print \$2 } /^. qq / { \$1=\"\"; \$2=\"\"; print \"! \" \$0 }" )
+	FILTERED=$( echo "$ALL" | awk -- "/^. ${PREFIX}\// { print \$2 } /^. qq / { \$1=\"\"; \$2=\"\"; print \"! \" \$0 }" )
     #                  remove prefix             # remove suffix     # uniq
-	echo "$FILTERED" | sed "s/^${2}-\(.*\)$/\1/g" | sed "s/-.*$//g"   |  uniq
+	echo "$FILTERED" | sed "s/^${PREFIX}\/\(.*\)$/\1/g" | sed "s/\/.*$//g"   |  uniq
 }
 
 
@@ -278,10 +281,10 @@ function deepest_completion_point {
 	COMMAND_FOUND=0   # reversed to behave like grep
 	while [[ "$1" != "" && $COMMAND_FOUND == "0" ]] ; do
 		CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
-		echo "$ALL" | grep $POINT-$1 > /dev/null
+		echo "$ALL" | grep "$POINT/$1" > /dev/null
 		COMMAND_FOUND=$?
 		if [ "0" == "$COMMAND_FOUND" ] ; then
-			POINT="$POINT-$1"
+			POINT="$POINT/$1"
 			shift
 		fi
 	done
@@ -294,10 +297,11 @@ function delegate_if_exists {
 	CMD="$2"
 	shift
 	shift
+	CMD=$( echo $CMD | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
 	EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$CMD$/ { print \$3 }" )
 	if [ "" != "$EXISTS" ] ; then
 		# damn!  need to consume a bunch of "$@"'s per each "qq-$CMD-$CMD"
-		DASHES=$( echo $CMD | sed 's/[^-]//g' | wc -c )
+		DASHES=$( echo $CMD | sed 's/[^\/]//g' | wc -c )
 		DASHES=$(( $DASHES - 1 ))  # remove newline character from count
 		shift $DASHES
 		exec $EXISTS "$@"
@@ -314,6 +318,7 @@ function document {
 		exit
 	fi
 
+
 	if [ "qq" == "$POINT" ] ; then
 		# top-level has special rules to intermingle top-level docs w/ command docs
 		CUR_LEVEL=$( one_level_all_special "$ALL" $POINT )
@@ -329,7 +334,7 @@ function document {
 		if [ "0" == "$IS_SPECIAL" ] ; then
 			echo "$sub" | sed 's/^\!\ *//g'
 		else
-			DOC=$( doc_for_point "$ALL" "$POINT-$sub" )
+			DOC=$( doc_for_point "$ALL" "${POINT}/${sub}" )
 			printf "  ${sub}${DOC}\n"
 		fi
 	done
