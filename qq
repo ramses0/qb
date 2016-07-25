@@ -301,7 +301,7 @@ function delegate_if_exists {
 	EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$CMD$/ { print \$3 }" )
 	if [ "" != "$EXISTS" ] ; then
 		# damn!  need to consume a bunch of "$@"'s per each "qq-$CMD-$CMD"
-		DASHES=$( echo $CMD | sed 's/[^\/]//g' | wc -c )
+		DASHES=$( echo $CMD | sed 's/[^/]//g' | wc -c )
 		DASHES=$(( $DASHES - 1 ))  # remove newline character from count
 		shift $DASHES
 		exec $EXISTS "$@"
