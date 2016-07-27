@@ -205,17 +205,20 @@ function descend_one_level {
 function doc_for_point {
 	ALL="$1"
 	POINT=$2
+	PADDING=$3
 	POINT=$( echo $POINT | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
 	FOUND_LINE=$( echo "$ALL" | grep "^X $POINT " )
 	if [ "$?" == "0" ] ; then
-		EXUCUTABLE=""
+		EXECUTABLE=""
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
 		DOC=$( $CMD --help | head -1 )
 	else
-		EXUCUTABLE="*"
+		EXECUTABLE="*"
+		PADDING=$(( $PADDING - 1 ))
 		DOC=$( echo "$ALL" | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"...\" } }" )
 	fi
-	echo "$EXUCUTABLE - $DOC"
+	DOC=$( echo $DOC | sed 's/^ *//g' )
+	printf "%s %${PADDING}s %s\n" "$EXECUTABLE" "-" "$DOC"
 }
 
 function one_level {
@@ -289,6 +292,7 @@ function document {
 		CUR_LEVEL=$( one_level "$COMMANDS" $POINT )
 	fi
 
+	LONGEST_COMMAND=$( echo "$CUR_LEVEL" | grep -v '^!' | awk '{ if ( length > L ) { L=length } }END{ print L }' )
 	echo "$CUR_LEVEL" | while read sub ; do
 		# see if this line is special
 		echo $sub | grep '^!' > /dev/null
@@ -296,8 +300,10 @@ function document {
 		if [ "0" == "$IS_SPECIAL" ] ; then
 			echo "$sub" | sed 's/^\!\ *//g'
 		else
-			DOC=$( doc_for_point "$ALL" "${POINT}/${sub}" )
-			printf "  ${sub}${DOC}\n"
+			CMD_LENGTH=$( echo $sub | wc -c )
+			PADDING=$(( $LONGEST_COMMAND - $CMD_LENGTH + 3 ))
+			DOC=$( doc_for_point "$ALL" "${POINT}/${sub}" $PADDING )
+			printf "  %s%s\n" "$sub" "$DOC"
 		fi
 	done
 }
