@@ -1,0 +1,4 @@
+#compdef qq
+
+ARR=( "${(@f)$( qq --completions-zsh ${words[@]:1} )}" )
+_describe -t commands "..." ARR

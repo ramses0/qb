@@ -193,7 +193,12 @@ fi
 COMPLETIONS_MODE=0
 if [ "--completions" == "$1" ] ; then
 	# remember that we're in COMPLETIONS_MODE and consume the --parameter
-	COMPLETIONS_MODE=1
+	COMPLETIONS_MODE='bash'
+	shift
+fi
+if [ "--completions-zsh" == "$1" ] ; then
+	# remember that we're in COMPLETIONS_MODE and consume the --parameter
+	COMPLETIONS_MODE='zsh'
 	shift
 fi
 
@@ -213,6 +218,24 @@ function descend_one_level {
 	done
 
 	popd > /dev/null
+}
+
+function zsh_doc_for_point {
+	ALL="$1"
+	POINT=$2
+	POINT=$( echo $POINT | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+	FOUND_LINE=$( echo "$ALL" | grep "^X $POINT " )
+	if [ "$?" == "0" ] ; then
+		EXECUTABLE=""
+		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
+		DOC=$( $CMD --help 2>&1 | head -1 )
+	else
+		EXECUTABLE="*"
+		DOC=$( echo "$ALL" | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$POINT\" } }" )
+	fi
+	DOC=$( echo $DOC | sed 's/^ *//g' )
+	LAST_COMMAND=$( echo $POINT | sed 's/^.*\///g' )
+	echo "${LAST_COMMAND}:${DOC}"
 }
 
 function doc_for_point {
@@ -335,7 +358,7 @@ ALL=$( show_all )
 DC=$( deepest_completion_point "$ALL" "$@" )
 
 # handle completions first (only if $COMPLETIONS_MODE)
-if [ "$COMPLETIONS_MODE" == "1" ] ; then
+if [ "$COMPLETIONS_MODE" != "0" ] ; then
 	if [[ "$DC" == "qq" && "$1" != "" ]] ; then
 		# no completions for this dead end...
 		exit
@@ -354,7 +377,27 @@ if [ "$COMPLETIONS_MODE" == "1" ] ; then
 		PREV_LEVEL=$( dirname $DC )
 		CUR_LEVEL=$( one_level "$COMMANDS" $PREV_LEVEL )
 	fi
-	echo "$CUR_LEVEL"
+	if [ "$COMPLETIONS_MODE" == "zsh" ] ; then
+		PREV_LEVEL=$( dirname $DC )
+		DC_SAFE=$( echo $DC | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+		EXISTS=$( echo "$ALL" | awk -- "\$2 ~ /^$DC_SAFE$/ { print \$0 }" )
+		#echo EXISTS . $EXISTS .
+		echo "$CUR_LEVEL" | while read cmd ; do
+			if [ "." == "$PREV_LEVEL" ] ; then
+				zsh_doc_for_point "$ALL" qq/$cmd
+			else
+				if [ "" == "$EXISTS" ] ; then
+					#echo not exists zsh_doc_for_point  $PREV_LEVEL/$cmd
+					zsh_doc_for_point "$ALL" $PREV_LEVEL/$cmd
+				else
+					#echo yes exists zsh_doc_for_point  $DC/$cmd
+					zsh_doc_for_point "$ALL" $DC/$cmd
+				fi
+			fi
+		done
+	else
+		echo "$CUR_LEVEL"
+	fi
 	exit
 fi
 
