@@ -20,7 +20,7 @@ function show_help() {
 function show_help_path() {
 	echo "Globally Available Path Commands"
 	echo ""
-	echo "Any command in your path named 'qq-*' will be executed on every"
+	echo "Any command in your path named '_qq-*' will be executed on every"
 	echo "invocation of 'qq'."
 	echo ""
 	echo "These commands should print out on the first line a useful description"
@@ -33,7 +33,7 @@ function show_help_path() {
 	echo "   D [sub-shortname]  [description of subcommands]"
 	echo "   X [sub-shortname]  [path_to_exectable]"
 	echo ""
-	echo "$ qq-unix"
+	echo "$ _qq-unix"
 	echo "These are standard unix commands"
 	echo "X cp /bin/cp"
 	echo "X ls /bin/ls"
@@ -43,9 +43,9 @@ function show_help_path() {
 	echo ""
 	echo "The above commands can be discovered and called as:"
 	echo "  $ qq                 # lists all first level commands"
-	echo "  $ qq unix            # lists all commands described from qq-unix"
-	echo "  $ qq unix cp         # directly execute qq-unix | grep '^X cp '"
-	echo "  $ qq unix more ls    # traverse deeper into commands returned by qq-unix"
+	echo "  $ qq unix            # lists all commands described from _qq-unix"
+	echo "  $ qq unix cp         # directly execute _qq-unix | grep '^X cp '"
+	echo "  $ qq unix more ls    # traverse deeper into commands returned by _qq-unix"
 	exit;
 }
 
@@ -123,12 +123,12 @@ function descend_points_sub {
 
 
 function show_all_path {
-	COMMANDS=$( compgen -c qq- | sort | uniq )
+	COMMANDS=$( compgen -c _qq- | sort | uniq )
 	if [ "" != "$COMMANDS" ] ; then
 		echo "$COMMANDS" | while read linker ; do
 			LINKER_OUTPUT=$( $linker )
 			DESC=$( echo "$LINKER_OUTPUT" | head -1 )
-			LINKER_AS_DIR=$( echo $linker | sed 's/-/\//g' )
+			LINKER_AS_DIR=$( echo $linker | sed 's/-/\//g' | sed 's/^_//g' )
 			echo D $LINKER_AS_DIR $DESC
 			echo "$LINKER_OUTPUT" | sed "1d" | while read linker_line ; do
 				TYPE_ONLY=$( echo $linker_line | awk '{ print $1 }' )
