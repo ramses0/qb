@@ -1,0 +1,10 @@
+function _qq_complete {
+    local cur_word completions
+
+    cur_word="${COMP_WORDS[COMP_CWORD]}"
+
+    completions=$( qq --completions ${COMP_WORDS[@]:1} )
+    COMPREPLY=( $(compgen -W "${completions}" -- ${cur_word}) )
+    return 0
+}
+complete -F _qq_complete qq

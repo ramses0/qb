@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+CFG_MAX_PARENT_DIRS=5
+
 function show_help() {
 	echo "Less QQ more Pew-Pew!"
 	echo "  --help           prints this message"
@@ -9,6 +11,10 @@ function show_help() {
 	echo "'qq' passes off work to other commands and encourages a self-documenting,"
 	echo "discoverable, ad-hoc command structure. It is especially useful for helping"
 	echo "to slightly organize every messy internal operational infrastructure."
+	echo ""
+	echo "NOTE: It has been extensively documented that programmers are willing to"
+	echo "put in long hours of effort in order to save ten minutes of 'unnecessary'"
+	echo "labor. This is known as optimization."
 }
 
 function show_help_path() {
@@ -85,7 +91,7 @@ function parent_dirs {
 	pushd . > /dev/null
 	ALL_PARENT_DIRS="$( pwd ) "
 	PWD=$( pwd )
-	IX=50
+	IX=$CFG_MAX_PARENT_DIRS
 	while [[ "$PWD" != "/" && $IX > 0 ]] ; do
 		cd ..
 		PWD=$( pwd )
@@ -117,7 +123,7 @@ function descend_points_sub {
 
 
 function show_all_path {
-	COMMANDS=$( compgen -c qq- )
+	COMMANDS=$( compgen -c qq- | sort | uniq )
 	if [ "" != "$COMMANDS" ] ; then
 		echo "$COMMANDS" | while read linker ; do
 			LINKER_OUTPUT=$( $linker )
@@ -184,6 +190,13 @@ if [ "--all" == "$1" ] ; then
 	exit
 fi
 
+COMPLETIONS_MODE=0
+if [ "--completions" == "$1" ] ; then
+	# remember that we're in COMPLETIONS_MODE and consume the --parameter
+	COMPLETIONS_MODE=1
+	shift
+fi
+
 
 function descend_one_level {
 	pushd . > /dev/null
@@ -195,7 +208,7 @@ function descend_one_level {
 	SUBCOMMANDS=$( find . -perm +111 -type f -maxdepth 1 | sed 's/^\.\///g' )
 	echo "$DESCRIPTION"
 	echo "$SUBCOMMANDS" | while read an_executable ; do
-		SUB_DESCRIPTION=$( ./$an_executable --help | head -1 )
+		SUB_DESCRIPTION=$( ./$an_executable --help 2>&1 | head -1 )
 		echo "  $an_executable - $SUB_DESCRIPTION"
 	done
 
@@ -211,7 +224,7 @@ function doc_for_point {
 	if [ "$?" == "0" ] ; then
 		EXECUTABLE=""
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
-		DOC=$( $CMD --help | head -1 )
+		DOC=$( $CMD --help 2>&1 | head -1 )
 	else
 		EXECUTABLE="*"
 		PADDING=$(( $PADDING - 1 ))
@@ -226,6 +239,15 @@ function one_level {
 	PREFIX=$2
 	PREFIX=$( echo $PREFIX | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
 	FILTERED=$( echo "$COMMANDS" | awk -- "/^${PREFIX}\// { print \$0 }" )
+	#                  remove prefix             # remove suffix     # uniq
+	echo "$FILTERED" | sed "s/${PREFIX}\/\(.*\)$/\1/g" | sed "s/\/.*$//g"   |  uniq
+}
+
+function one_level_completions {
+	COMMANDS=$1
+	PREFIX=$2
+	PREFIX=$( echo $PREFIX | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+	FILTERED=$( echo "$COMMANDS" | awk -- "/^${PREFIX}/ { print \$0 }" )
 	#                  remove prefix             # remove suffix     # uniq
 	echo "$FILTERED" | sed "s/${PREFIX}\/\(.*\)$/\1/g" | sed "s/\/.*$//g"   |  uniq
 }
@@ -311,6 +333,31 @@ function document {
 # see how deep we can recognize command nodes / sub-nodes
 ALL=$( show_all )
 DC=$( deepest_completion_point "$ALL" "$@" )
+
+# handle completions first (only if $COMPLETIONS_MODE)
+if [ "$COMPLETIONS_MODE" == "1" ] ; then
+	if [[ "$DC" == "qq" && "$1" != "" ]] ; then
+		# no completions for this dead end...
+		exit
+	fi
+	COMMANDS=$( echo "$ALL" | awk -- '{print $2}' )
+	CUR_LEVEL=$( one_level "$COMMANDS" $DC )
+	if [ "" == "$CUR_LEVEL" ] ; then
+		DC_SAFE=$( echo $DC | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+		EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$DC_SAFE$/ { print \$3 }" )
+		if [ "" != "$EXISTS" ] ; then
+			# terminate "qq" completions if command exists
+			# ...default to local filesystem completions
+			ls
+			exit
+		fi
+		PREV_LEVEL=$( dirname $DC )
+		CUR_LEVEL=$( one_level "$COMMANDS" $PREV_LEVEL )
+	fi
+	echo "$CUR_LEVEL"
+	exit
+fi
+
 # this will exec and exit otherwise proceed directly to documentation
 delegate_if_exists "$ALL" "$DC" "$@"
 if [[ "$DC" == "qq" && "$1" != "" ]] ; then
