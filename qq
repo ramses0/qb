@@ -308,7 +308,7 @@ function delegate_if_exists {
 	shift
 	shift
 	CMD=$( echo $CMD | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
-	EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$CMD$/ { print \$3 }" )
+	EXISTS=$( echo "$ALL" | grep "^X" | awk -- "\$2 ~ /^$CMD$/ { print \$3 }" | head -1 )
 	if [ "" != "$EXISTS" ] ; then
 		# damn!  need to consume a bunch of "$@"'s per each "qq-$CMD-$CMD"
 		DASHES=$( echo $CMD | sed 's/[^/]//g' | wc -c )
