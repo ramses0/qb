@@ -49,41 +49,35 @@ function show_help_path() {
 	exit;
 }
 
-function show_help_bin() {
+function show_help_readme() {
 	echo "Well-Formed ./bin/ directories in parent path"
 	echo ""
-	echo "When 'qq' is invoked it searches parent directories for a"
-	echo "directory called './bin' that also contains a 'README.txt'"
-	echo "and assumes that the commands in there are sufficiently well-"
-	echo "formed to be callable as 'commmand --help' without side-effects."
+	echo "When 'qq' is invoked it searches parent directories (stopping at your"
+	echo "home directory) and looks for './bin' directories containing executable"
+	echo "files."
 	echo ""
-	echo "...a dangerous assumption, but necessary to aid in discovery of"
-	echo "those commands and increase the quality and documentation of"
-	echo "said commands."
-	echo ""
-	echo "The first line of ./bin/README.txt should contain a useful"
+	echo "If there is a ./bin/README.txt, the first line of is used as a"
 	echo "description of the commands contained in that directory and"
-	echo "may contain as much documentation as desired."
+	echo "may contain any other documentation as desired."
 	echo ""
-	echo "Subdirectories in the ./bin directory which also contain a"
-	echo "./README.txt in the same format will be added as further"
-	echo "junction points for more commands."
+	echo "Any commands explicitly listed in the README.txt as '^command --help$'"
+	echo "are assumed to be safe to execute as 'command --help' without side-effects"
+	echo "and the first line of those commands are used as documentation."
 	echo ""
 	echo "Example:"
 	echo "  $ find ../bin -type f"
-	echo "  ../bin/README.txt"
 	echo "  ../bin/foo"
 	echo "  ../bin/bar"
 	echo "  ../bin/more/README.txt"
 	echo "  ../bin/more/baz"
 	echo "  $ qq"
-	echo "  Commands from a bin dir"
-	echo "    foo - info from ../bin/foo --help | head -1"
-	echo "    bar - info from ../bin/bar --help | head -1"
-	echo "    more - from head -1 ../bin/more/README.txt"
+	echo "  ../bin/README.txt does not exist"
+	echo "    foo   - foo needs '^foo --help$' in the README.txt"
+	echo "    bar   - foo needs '^foo --help$' in the README.txt"
+	echo "    more* - from head -1 ../bin/more/README.txt"
 	echo "  $ qq more"
 	echo "  Commands from ../bin/more/README.txt directory"
-	echo "    baz - info from ../bin/more/baz --help | head -1"
+	echo "    baz - README.txt there was '^baz --help$' so this text shows up"
 	exit;
 }
 
@@ -107,7 +101,7 @@ function parent_dirs {
 function descend_points_bin {
 	CANDIDATE_DIRS=$1
 	echo "$CANDIDATE_DIRS" | while read cur_dir ; do
-		if [ -f $cur_dir/bin/README.txt ] ; then
+		if [ -d $cur_dir/bin ] ; then
 			echo $cur_dir/bin
 		fi
 	done
@@ -117,7 +111,7 @@ function descend_points_bin {
 # should be considered as sub-descend points based on directory name
 function descend_points_sub {
 	START_DIR=$1
-	SUBDIRS=$( find $START_DIR -name README.txt -maxdepth 5 | sed 's/\/README.*//g' | sort )
+	SUBDIRS=$( find $START_DIR -type d -maxdepth 5 | sed 's/\/README.*//g' | sort )
 	echo "$SUBDIRS"
 }
 
@@ -143,14 +137,28 @@ function show_all_path {
 function show_all_dir {
 	DIR=$1
 	PREFIX=$2
+	printf "D qq${PREFIX} "
 	if [ -f $DIR/README.txt ] ; then
-		printf "D qq${PREFIX} "
 		cat $DIR/README.txt | head -1
-		SUBCOMMANDS=$( find $DIR -perm +111 -type f -maxdepth 1 | sed 's/^.*\///g' | sort )
-		echo "$SUBCOMMANDS" | while read subcommand ; do
-			echo X qq${PREFIX}/$subcommand $DIR/$subcommand
-		done
+	else
+		echo "${DIR}/README.txt is missing"
 	fi
+	SUBCOMMANDS=$( find $DIR -perm +111 -type f -maxdepth 1 | sed 's/^.*\///g' | sort )
+	echo "$SUBCOMMANDS" | while read subcommand ; do
+		echo X qq${PREFIX}/$subcommand $DIR/$subcommand
+	done
+}
+
+####
+# nasty path search function
+function dir_in_path {
+	P="$1"       #path
+	SEARCH="$2"
+	#                               /foo//bar => foo/bar   /bar/: => /bar
+	CLEAN_PATH=$( echo ":${P}:"    | sed 's/\/\//\//g'    | sed 's/\/:/:/g' )
+	CLEAN_SEARCH=$( echo "$SEARCH" | sed 's/\/\//\//g'    | sed 's/\/:/:/g' )
+	echo "$CLEAN_PATH" | grep ':'${CLEAN_SEARCH}':' > /dev/null
+	echo $?
 }
 
 
@@ -160,12 +168,17 @@ function show_all {
 	DPB=$( descend_points_bin "$PD" );
 	if [ "" != "$DPB" ] ; then
 		echo "$DPB" | while read dir ; do
-			DPS=$( descend_points_sub $dir )
-			MASTER_DIR_LENGTH=$( echo $dir | wc -c )
-			echo "$DPS" | while read subdir ; do
-				PREFIX=$( echo $subdir | cut -c ${MASTER_DIR_LENGTH}- - )
-				show_all_dir $subdir $PREFIX
-			done
+			DIR_SAFE=$( echo $dir | sed 's/\/\//\//g' | sed -e 's/[]\/$*.^|[]/\\&/g' )  # make safe for sed-replacement (!!)
+			echo ":${PATH}:" | grep ":${DIR_SAFE}:" > /dev/null
+			DIR_IN_PATH=$( dir_in_path "$PATH" "$dir" )
+			if [[ "$dir" == ${HOME}* && "1" == "$DIR_IN_PATH" ]] ; then
+				DPS=$( descend_points_sub $dir )
+				MASTER_DIR_LENGTH=$( echo $dir | wc -c )
+				echo "$DPS" | while read subdir ; do
+					PREFIX=$( echo $subdir | cut -c ${MASTER_DIR_LENGTH}- - )
+					show_all_dir $subdir $PREFIX
+				done
+			fi
 		done
 	fi
 }
@@ -182,7 +195,7 @@ if [ "--help-path" == "$1" ] ; then
 	exit
 fi
 if [ "--help-bin" == "$1" ] ; then
-	show_help_bin
+	show_help_readme
 	exit
 fi
 if [ "--all" == "$1" ] ; then
@@ -213,7 +226,8 @@ function descend_one_level {
 	SUBCOMMANDS=$( find . -perm +111 -type f -maxdepth 1 | sed 's/^\.\///g' )
 	echo "$DESCRIPTION"
 	echo "$SUBCOMMANDS" | while read an_executable ; do
-		SUB_DESCRIPTION=$( ./$an_executable --help 2>&1 | head -1 )
+		#SUB_DESCRIPTION=$( ./$an_executable --help 2>&1 | head -1 )
+		SUB_DESCRIPTION=""
 		echo "  $an_executable - $SUB_DESCRIPTION"
 	done
 
@@ -228,7 +242,10 @@ function zsh_doc_for_point {
 	if [ "$?" == "0" ] ; then
 		EXECUTABLE=""
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
-		DOC=$( $CMD --help 2>&1 | head -1 )
+		#DOC=$( $CMD --help 2>&1 | head -1 )
+		SHORT_CMD=$( basename $CMD )
+		DOC_NOT_FOUND="$SHORT_CMD needs '^$SHORT_CMD --help$' in the README.txt"
+		DOC=$( echo "$ALL" | grep ^D | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$DOC_NOT_FOUND\" } }" )
 	else
 		EXECUTABLE="*"
 		DOC=$( echo "$ALL" | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$POINT\" } }" )
@@ -236,6 +253,18 @@ function zsh_doc_for_point {
 	DOC=$( echo $DOC | sed 's/^ *//g' )
 	LAST_COMMAND=$( echo $POINT | sed 's/^.*\///g' )
 	echo "${LAST_COMMAND}:${DOC}"
+}
+
+function help_is_safe {
+	CMD="$1"
+	P=$( dirname $CMD )
+	SHORT_CMD=$( basename $CMD )
+	if [ -f $P/README.txt ] ; then
+		cat $P/README.txt | grep "^$SHORT_CMD --help$" > /dev/null
+		echo "$?"
+	else
+		echo "1"
+	fi
 }
 
 function doc_for_point {
@@ -247,7 +276,14 @@ function doc_for_point {
 	if [ "$?" == "0" ] ; then
 		EXECUTABLE=""
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
-		DOC=$( $CMD --help 2>&1 | head -1 )
+		HELP_IS_SAFE=$( help_is_safe "$CMD" )
+		if [[ "0" == "$HELP_IS_SAFE" ]]; then
+			DOC=$( $CMD --help 2>&1 | head -1 )
+		else
+			SHORT_CMD=$( basename $CMD )
+			DOC_NOT_FOUND="$SHORT_CMD needs '^$SHORT_CMD --help$' in the README.txt"
+			DOC=$( echo "$ALL" | grep ^D | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$DOC_NOT_FOUND\" } }" )
+		fi
 	else
 		EXECUTABLE="*"
 		PADDING=$(( $PADDING - 1 ))
@@ -280,7 +316,11 @@ function one_level_all_special {
 	PREFIX=$2
 	FILTERED=$( echo "$ALL" | awk -- "/^. ${PREFIX}\// { print \$2 } /^. qq / { \$1=\"\"; \$2=\"\"; print \"! \" \$0 }" )
     #                  remove prefix             # remove suffix     # uniq
-	echo "$FILTERED" | sed "s/^${PREFIX}\/\(.*\)$/\1/g" | sed "s/\/.*$//g"   |  uniq
+	TOP_DOC=$( echo "$FILTERED" | sed "s/^${PREFIX}\/\(.*\)$/\1/g" | sed "s/^[^!].*\/.*$//g"   | grep -v '^$' | uniq )
+#	if [[ "" == "$TOP_DOC" ]] ; then
+#		TOP_DOC="Needs Documentation"
+#	fi
+	echo "$TOP_DOC"
 }
 
 function deepest_completion_point {
@@ -340,7 +380,7 @@ function document {
 	LONGEST_COMMAND=$( echo "$CUR_LEVEL" | grep -v '^!' | awk '{ if ( length > L ) { L=length } }END{ print L }' )
 	echo "$CUR_LEVEL" | while read sub ; do
 		# see if this line is special
-		echo $sub | grep '^!' > /dev/null
+		echo "$sub" | grep '^!' > /dev/null
 		IS_SPECIAL="$?"
 		if [ "0" == "$IS_SPECIAL" ] ; then
 			echo "$sub" | sed 's/^\!\ *//g'
