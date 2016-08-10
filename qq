@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-CFG_MAX_PARENT_DIRS=5
+CFG_MAX_PARENT_DIRS=50
+C_RED='\033[0;31m' # red
+C_DIM='\033[2m'    # dim
+C_UL='\033[4m'     # underline
+C_NONE='\033[0m'   # no color
 
 function show_help() {
 	echo "Less QQ more Pew-Pew!"
@@ -56,11 +60,11 @@ function show_help_readme() {
 	echo "home directory) and looks for './bin' directories containing executable"
 	echo "files."
 	echo ""
-	echo "If there is a ./bin/README.txt, the first line of is used as a"
+	echo "If there is a ./bin/README.*, the first line of is used as a"
 	echo "description of the commands contained in that directory and"
 	echo "may contain any other documentation as desired."
 	echo ""
-	echo "Any commands explicitly listed in the README.txt as '^command --help$'"
+	echo "Any commands explicitly listed in the README.* as '^command --help$'"
 	echo "are assumed to be safe to execute as 'command --help' without side-effects"
 	echo "and the first line of those commands are used as documentation."
 	echo ""
@@ -68,16 +72,16 @@ function show_help_readme() {
 	echo "  $ find ../bin -type f"
 	echo "  ../bin/foo"
 	echo "  ../bin/bar"
-	echo "  ../bin/more/README.txt"
+	echo "  ../bin/more/README"
 	echo "  ../bin/more/baz"
 	echo "  $ qq"
-	echo "  ../bin/README.txt does not exist"
-	echo "    foo   - foo needs '^foo --help$' in the README.txt"
-	echo "    bar   - foo needs '^foo --help$' in the README.txt"
-	echo "    more* - from head -1 ../bin/more/README.txt"
+	echo "  ../bin/README does not exist"
+	echo "    foo   - foo needs '^foo --help$' in the README"
+	echo "    bar   - foo needs '^foo --help$' in the README"
+	echo "    more* - from head -1 ../bin/more/README"
 	echo "  $ qq more"
-	echo "  Commands from ../bin/more/README.txt directory"
-	echo "    baz - README.txt there was '^baz --help$' so this text shows up"
+	echo "  Commands from ../bin/more/README directory"
+	echo "    baz - README there was '^baz --help$' so this text shows up"
 	exit;
 }
 
@@ -97,7 +101,7 @@ function parent_dirs {
 }
 
 # given a list of directories, filter down to only those which contain
-# './bin/README*'s
+# './bin' subdirectories
 function descend_points_bin {
 	CANDIDATE_DIRS=$1
 	echo "$CANDIDATE_DIRS" | while read cur_dir ; do
@@ -107,8 +111,8 @@ function descend_points_bin {
 	done
 }
 
-# from within a ./bin/README.txt, any subdirs which also contain README.txt
-# should be considered as sub-descend points based on directory name
+# from within a ./bin, any subdirs with executables should
+# be considered as sub-descend points based on directory name
 function descend_points_sub {
 	START_DIR=$1
 	SUBDIRS=$( find $START_DIR -type d -maxdepth 5 | sed 's/\/README.*//g' | sort )
@@ -138,10 +142,11 @@ function show_all_dir {
 	DIR=$1
 	PREFIX=$2
 	printf "D qq${PREFIX} "
-	if [ -f $DIR/README.txt ] ; then
-		cat $DIR/README.txt | head -1
+	if [ -f $DIR/README* ] ; then
+		FIRST_LINE=$( cat $DIR/README* | head -1 )
+		printf "${FIRST_LINE} ${C_DIM}($DIR)${C_NONE}\n"
 	else
-		echo "${DIR}/README.txt is missing"
+		printf "${C_DIM}${DIR}/README is missing${C_NONE}\n"
 	fi
 	SUBCOMMANDS=$( find $DIR -perm +111 -type f -maxdepth 1 | sed 's/^.*\///g' | sort )
 	echo "$SUBCOMMANDS" | while read subcommand ; do
@@ -244,7 +249,7 @@ function zsh_doc_for_point {
 		CMD=$( echo $FOUND_LINE | awk -- '{print $3}' )
 		#DOC=$( $CMD --help 2>&1 | head -1 )
 		SHORT_CMD=$( basename $CMD )
-		DOC_NOT_FOUND="$SHORT_CMD needs '^$SHORT_CMD --help$' in the README.txt"
+		DOC_NOT_FOUND="$SHORT_CMD needs '^$SHORT_CMD --help$' in the README"
 		DOC=$( echo "$ALL" | grep ^D | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$DOC_NOT_FOUND\" } }" )
 	else
 		EXECUTABLE="*"
@@ -259,8 +264,8 @@ function help_is_safe {
 	CMD="$1"
 	P=$( dirname $CMD )
 	SHORT_CMD=$( basename $CMD )
-	if [ -f $P/README.txt ] ; then
-		cat $P/README.txt | grep "^$SHORT_CMD --help$" > /dev/null
+	if [ -f $P/README* ] ; then
+		cat $P/README* | grep "^$SHORT_CMD --help$" > /dev/null
 		echo "$?"
 	else
 		echo "1"
@@ -281,7 +286,7 @@ function doc_for_point {
 			DOC=$( $CMD --help 2>&1 | head -1 )
 		else
 			SHORT_CMD=$( basename $CMD )
-			DOC_NOT_FOUND="$SHORT_CMD needs '^$SHORT_CMD --help$' in the README.txt"
+			DOC_NOT_FOUND="${C_DIM}$SHORT_CMD needs '^$SHORT_CMD --help$' in the README${C_NONE}"
 			DOC=$( echo "$ALL" | grep ^D | awk -- "\$2 ~ /^$POINT$/ { found = 1; if (\$1 = \"D\"){ \$1 = \"\" ; \$2 = \"\" ; print \$0 } } END { if ( found == 0 ) { print \"$DOC_NOT_FOUND\" } }" )
 		fi
 	else
